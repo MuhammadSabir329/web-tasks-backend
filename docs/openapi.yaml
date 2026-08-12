@@ -1,0 +1,372 @@
+openapi: 3.0.3
+info:
+  title: Tasks API
+  description: |
+    A simple task/list management API built with Node.js, Express, and MongoDB (Mongoose).
+
+    ## Overview
+    The API manages **Lists**, each containing an array of **Tasks**. A default list
+    called "My Tasks" is auto-created on server startup if it doesn't already exist.
+
+    ## Authentication
+    This is a **public API** — no authentication or API key is required. All endpoints
+    are freely accessible to anyone.
+
+    ## Error Handling
+    Errors are returned as JSON in the form `{ "message": "..." }` with an appropriate
+    HTTP status code (400, 404, or 500).
+  version: 1.0.0
+  contact:
+    name: Tasks API
+security: []
+servers:
+  - url: http://localhost:5000
+    description: Local development server
+
+tags:
+  - name: Lists
+    description: Manage task lists
+  - name: Tasks
+    description: Manage tasks within a list
+
+paths:
+  /lists:
+    get:
+      tags: [Lists]
+      summary: Get all lists
+      operationId: getLists
+      responses:
+        '200':
+          description: Array of all lists
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/List'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    post:
+      tags: [Lists]
+      summary: Create a new list
+      operationId: createList
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                title:
+                  type: string
+                  example: Groceries
+      responses:
+        '201':
+          description: List created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/List'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /lists/{listId}:
+    get:
+      tags: [Lists]
+      summary: Get a list by ID
+      operationId: getListById
+      parameters:
+        - $ref: '#/components/parameters/ListId'
+      responses:
+        '200':
+          description: The requested list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/List'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    patch:
+      tags: [Lists]
+      summary: Update a list (title and/or checked state)
+      description: >
+        `isChecked` is stored inverted: sending `isChecked` toggles it to the
+        opposite of the value provided.
+      operationId: updateList
+      parameters:
+        - $ref: '#/components/parameters/ListId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                newTitle:
+                  type: string
+                  example: Weekend Groceries
+                isChecked:
+                  type: boolean
+                  example: true
+      responses:
+        '200':
+          description: Updated list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/List'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    delete:
+      tags: [Lists]
+      summary: Delete a list
+      operationId: deleteList
+      parameters:
+        - $ref: '#/components/parameters/ListId'
+      responses:
+        '200':
+          description: List deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: List deleted successfully.
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /lists/{listId}/tasks:
+    post:
+      tags: [Tasks]
+      summary: Add a task to a list
+      operationId: addTask
+      parameters:
+        - $ref: '#/components/parameters/ListId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                title:
+                  type: string
+                  example: Buy milk
+                isStarred:
+                  type: boolean
+                  default: false
+      responses:
+        '201':
+          description: Task added; returns the updated list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/List'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /lists/{listId}/tasks/completed:
+    delete:
+      tags: [Tasks]
+      summary: Delete all completed tasks in a list
+      operationId: deleteCompletedTasks
+      parameters:
+        - $ref: '#/components/parameters/ListId'
+      responses:
+        '200':
+          description: Completed tasks removed; returns the updated list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/List'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /lists/{listId}/tasks/{taskId}:
+    patch:
+      tags: [Tasks]
+      summary: Update a task
+      description: >
+        Sending `newTitle` as an empty string deletes the task instead of updating it.
+        `isCompleted` and `isStarred` are stored inverted: sending a value toggles it
+        to the opposite of what's provided.
+      operationId: updateTask
+      parameters:
+        - $ref: '#/components/parameters/ListId'
+        - $ref: '#/components/parameters/TaskId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                newTitle:
+                  type: string
+                  example: Buy oat milk
+                isCompleted:
+                  type: boolean
+                isStarred:
+                  type: boolean
+      responses:
+        '200':
+          description: Updated list (or task deleted if newTitle was empty)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/List'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Tasks]
+      summary: Delete a task
+      operationId: deleteTask
+      parameters:
+        - $ref: '#/components/parameters/ListId'
+        - $ref: '#/components/parameters/TaskId'
+      responses:
+        '200':
+          description: Task deleted; returns the updated list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/List'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /lists/{listId}/tasks/{taskId}/move:
+    patch:
+      tags: [Tasks]
+      summary: Move a task to another list
+      operationId: moveTaskToList
+      parameters:
+        - $ref: '#/components/parameters/ListId'
+        - $ref: '#/components/parameters/TaskId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [movingListId]
+              properties:
+                movingListId:
+                  type: string
+                  description: ID of the destination list
+                  example: 65123abc4567def890123456
+      responses:
+        '200':
+          description: Task moved; returns the destination list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/List'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+  parameters:
+    ListId:
+      name: listId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: MongoDB ObjectId of the list
+      example: 65123abc4567def890123456
+    TaskId:
+      name: taskId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: MongoDB ObjectId of the task
+      example: 65123abc4567def890123457
+
+  schemas:
+    Task:
+      type: object
+      properties:
+        _id:
+          type: string
+        title:
+          type: string
+        isCompleted:
+          type: boolean
+          default: false
+        isStarred:
+          type: boolean
+          default: false
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    List:
+      type: object
+      properties:
+        _id:
+          type: string
+        title:
+          type: string
+        isChecked:
+          type: boolean
+          default: true
+        tasks:
+          type: array
+          items:
+            $ref: '#/components/schemas/Task'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    Error:
+      type: object
+      properties:
+        message:
+          type: string
+
+  responses:
+    BadRequest:
+      description: Invalid request data
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    ServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
