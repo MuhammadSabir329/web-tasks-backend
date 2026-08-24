@@ -3,7 +3,7 @@ import List from "../models/listModel.js";
 export const addTask = async (req, res) => {
   try {
     const { title, isStarred } = req.body;
-    const list = await List.findById(req.params.listId);
+    const list = await List.findOne({ _id: req.params.listId, userId: req.userId });
     if (!list) return res.status(404).json({ message: "List not found." });
     list.tasks.push({
       title,
@@ -20,7 +20,7 @@ export const addTask = async (req, res) => {
 export const updateTask = async (req, res) => {
   try {
     const { newTitle, isCompleted, isStarred } = req.body;
-    const list = await List.findById(req.params.listId);
+    const list = await List.findOne({ _id: req.params.listId, userId: req.userId });
     if (!list) return res.status(404).json({ message: "List not found." });
 
     if (newTitle !== undefined && newTitle.trim() === "") {
@@ -59,9 +59,9 @@ export const updateTask = async (req, res) => {
 export const moveTaskToList = async (req, res) => {
   try {
     const { movingListId } = req.body;
-    const currentList = await List.findById(req.params.listId);
+    const currentList = await List.findOne({ _id: req.params.listId, userId: req.userId });
     if (!currentList) return res.status(404).json({ message: "Current list not found." });
-    const movingList = await List.findById(movingListId);
+    const movingList = await List.findOne({ _id: movingListId, userId: req.userId });
     if (!movingList) return res.status(404).json({ message: "Moving list not found." });
     const task = currentList.tasks.id(req.params.taskId);
     if (!task) return res.status(404).json({ message: "Task not found." });
@@ -79,7 +79,7 @@ export const moveTaskToList = async (req, res) => {
 
 export const deleteCompletedTasks = async (req, res) => {
   try {
-    const list = await List.findById(req.params.listId);
+    const list = await List.findOne({ _id: req.params.listId, userId: req.userId });
     if (!list) return res.status(404).json({ message: "List not found." });
     list.tasks = list.tasks.filter((task) => !task.isCompleted);
     list.updated_at = Date.now();
@@ -92,7 +92,7 @@ export const deleteCompletedTasks = async (req, res) => {
 
 export const deleteTask = async (req, res) => {
   try {
-    const list = await List.findById(req.params.listId);
+    const list = await List.findOne({ _id: req.params.listId, userId: req.userId });
     if (!list) return res.status(404).json({ message: "List not found." });
     list.tasks.pull({ _id: req.params.taskId });
     list.updated_at = Date.now();

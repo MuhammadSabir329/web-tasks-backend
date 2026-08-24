@@ -2,7 +2,7 @@ import List from "../models/listModel.js";
 
 export const getLists = async (req, res) => {
   try {
-    const lists = await List.find();
+    const lists = await List.find({ userId: req.userId });
     res.status(200).json(lists);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -11,7 +11,7 @@ export const getLists = async (req, res) => {
 
 export const getListById = async (req, res) => {
   try {
-    const list = await List.findById(req.params.listId);
+    const list = await List.findOne({ _id: req.params.listId, userId: req.userId });
     if (!list) return res.status(404).json({ message: 'List not found.' });
     res.status(200).json(list);
   } catch (err) {
@@ -22,7 +22,7 @@ export const getListById = async (req, res) => {
 export const createList = async (req, res) => {
   try {
     const { title } = req.body;
-    const newList = new List({ title, isChecked: true });
+    const newList = new List({ title, isChecked: true, userId: req.userId });
     const savedList = await newList.save();
     res.status(201).json(savedList);
   } catch (err) {
@@ -33,7 +33,7 @@ export const createList = async (req, res) => {
 export const updateList = async (req, res) => {
   try {
     const { newTitle, isChecked } = req.body;
-    const list = await List.findById(req.params.listId);
+    const list = await List.findOne({ _id: req.params.listId, userId: req.userId });
     if (!list) return res.status(404).json({ message: 'List not found.' });
 
     if (newTitle !== undefined) {
@@ -55,7 +55,7 @@ export const updateList = async (req, res) => {
 
 export const deleteList = async (req, res) => {
   try {
-    const deletedList = await List.findByIdAndDelete(req.params.listId);
+    const deletedList = await List.findOneAndDelete({ _id: req.params.listId, userId: req.userId });
     if (!deletedList) return res.status(404).json({ message: 'List not found.' });
 
     res.status(200).json({ message: "List deleted successfully." });
