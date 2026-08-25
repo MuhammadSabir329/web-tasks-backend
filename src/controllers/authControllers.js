@@ -1,8 +1,7 @@
 import User from "../models/userModel.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import List from"../models/listModel.js"
-
+import List from "../models/listModel.js";
 
 export const register = async (req, res) => {
   try {
@@ -39,6 +38,11 @@ export const register = async (req, res) => {
       },
     });
   } catch (err) {
+    if (err.name === "ValidationError") {
+      return res
+        .status(400)
+        .json({ message: "Please fill in all required fields." });
+    }
     res.status(500).json({ message: err.message });
   }
 };
