@@ -38,12 +38,12 @@ export const updateTask = async (req, res) => {
     }
 
     if (isStarred !== undefined) {
-      task.isStarred = !isStarred;
+      task.isStarred = isStarred;
     }
 
     if (isStarred !== undefined && isCompleted !== undefined) {
-      task.isCompleted = !isCompleted;
-      task.isStarred = !isStarred;
+      task.isCompleted = isCompleted;
+      task.isStarred = isStarred;
     }
 
     list.updated_at = Date.now();
