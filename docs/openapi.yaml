@@ -1,49 +1,164 @@
 openapi: 3.0.3
 info:
-  title: Tasks API
+  title: Web Tasks API
   description: |
-    A simple task/list management API built with Node.js, Express, and MongoDB (Mongoose).
+    REST API for Web Tasks, a task management app with lists and tasks.
+    Built with Node.js, Express and MongoDB (Mongoose).
 
     ## Overview
-    The API manages **Lists**, each containing an array of **Tasks**. A default list
-    called "My Tasks" is auto-created on server startup if it doesn't already exist.
+    Each user owns **Lists**, and each list contains an array of **Tasks**.
+    A default list called "My Tasks" is created automatically when a user registers.
+    Users can only see and change their own lists.
 
     ## Authentication
-    This is a **public API** — no authentication or API key is required. All endpoints
-    are freely accessible to anyone.
+    The API uses **JWT (Bearer token) authentication**.
+
+    1. Create an account with `POST /auth/register`, or log in with `POST /auth/login`.
+    2. Both return a `token` (valid for 7 days).
+    3. Send it on every `/lists` request in the header:
+       `Authorization: Bearer <token>`
+
+    Passwords are hashed with bcrypt before they are stored.
+    The `/auth/*` endpoints are public. Every `/lists` endpoint requires a valid token.
 
     ## Error Handling
     Errors are returned as JSON in the form `{ "message": "..." }` with an appropriate
-    HTTP status code (400, 404, or 500).
+    HTTP status code (400, 401, 404 or 500).
   version: 1.0.0
   contact:
-    name: Tasks API
-security: []
+    name: Muhammad Sabir
+    url: https://github.com/MuhammadSabir329/web-tasks-backend
+    email: msabir.work@gmail.com
+
 servers:
   - url: http://localhost:5000
     description: Local development server
+  - url: https://to-do-tasks-api.bonto.run
+    description: Production server (Bonto)
+
+security:
+  - bearerAuth: []
 
 tags:
+  - name: Auth
+    description: Register and log in
   - name: Lists
-    description: Manage task lists
+    description: Manage the logged-in user's task lists
   - name: Tasks
     description: Manage tasks within a list
 
 paths:
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Register a new user
+      description: >
+        Creates the account, creates a default "My Tasks" list for the user,
+        and returns a JWT so the user is logged in straight away.
+      operationId: register
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password, user_name]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: sabir@example.com
+                password:
+                  type: string
+                  format: password
+                  example: myStrongPassword
+                user_name:
+                  type: string
+                  example: Muhammad Sabir
+                profilePicture:
+                  type: string
+                  description: Optional image URL
+                  example: ''
+      responses:
+        '201':
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: User already exists, or a required field is missing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                alreadyExists:
+                  value:
+                    message: User already exists.
+                missingFields:
+                  value:
+                    message: Please fill in all required fields.
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Log in
+      operationId: login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: sabir@example.com
+                password:
+                  type: string
+                  format: password
+                  example: myStrongPassword
+      responses:
+        '200':
+          description: Logged in
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Wrong email or password
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: Invalid email or password.
+        '500':
+          $ref: '#/components/responses/ServerError'
+
   /lists:
     get:
       tags: [Lists]
-      summary: Get all lists
+      summary: Get all lists of the logged-in user
       operationId: getLists
       responses:
         '200':
-          description: Array of all lists
+          description: Array of the user's lists
           content:
             application/json:
               schema:
                 type: array
                 items:
                   $ref: '#/components/schemas/List'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '500':
           $ref: '#/components/responses/ServerError'
     post:
@@ -70,6 +185,8 @@ paths:
                 $ref: '#/components/schemas/List'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
 
   /lists/{listId}:
     get:
@@ -85,16 +202,19 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/List'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/ServerError'
     patch:
       tags: [Lists]
-      summary: Update a list (title and/or checked state)
+      summary: Update a list (title and/or visibility)
       description: >
-        `isChecked` is stored inverted: sending `isChecked` toggles it to the
-        opposite of the value provided.
+        Send `newTitle` to rename the list. Send `isChecked` to change whether the
+        list is shown. Note: the API stores the **opposite** of the `isChecked` value
+        you send, so sending the list's current value toggles it.
       operationId: updateList
       parameters:
         - $ref: '#/components/parameters/ListId'
@@ -118,6 +238,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/List'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
         '500':
@@ -139,6 +261,8 @@ paths:
                   message:
                     type: string
                     example: List deleted successfully.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
         '500':
@@ -174,6 +298,8 @@ paths:
                 $ref: '#/components/schemas/List'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
 
@@ -193,6 +319,8 @@ paths:
                 $ref: '#/components/schemas/List'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
 
@@ -201,9 +329,11 @@ paths:
       tags: [Tasks]
       summary: Update a task
       description: >
-        Sending `newTitle` as an empty string deletes the task instead of updating it.
-        `isCompleted` and `isStarred` are stored inverted: sending a value toggles it
-        to the opposite of what's provided.
+        - Send `newTitle` to rename the task. If `newTitle` is an empty string, the task
+          is **deleted** instead.
+        - Send `isStarred` to star or unstar the task.
+        - `isCompleted` is only applied when `isStarred` is sent in the same request
+          (send both together to change completion).
       operationId: updateTask
       parameters:
         - $ref: '#/components/parameters/ListId'
@@ -224,13 +354,15 @@ paths:
                   type: boolean
       responses:
         '200':
-          description: Updated list (or task deleted if newTitle was empty)
+          description: Updated list (or the list without the task, if `newTitle` was empty)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/List'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
     delete:
@@ -249,6 +381,8 @@ paths:
                 $ref: '#/components/schemas/List'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
 
@@ -256,6 +390,10 @@ paths:
     patch:
       tags: [Tasks]
       summary: Move a task to another list
+      description: >
+        Copies the task into the destination list and removes it from the current one.
+        The task gets a new ID in the destination list. Both lists must belong to the
+        logged-in user.
       operationId: moveTaskToList
       parameters:
         - $ref: '#/components/parameters/ListId'
@@ -281,10 +419,21 @@ paths:
                 $ref: '#/components/schemas/List'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
 
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >
+        JWT returned by `/auth/register` or `/auth/login`.
+        Send it as `Authorization: Bearer <token>`.
+
   parameters:
     ListId:
       name: listId
@@ -329,11 +478,15 @@ components:
       properties:
         _id:
           type: string
+        userId:
+          type: string
+          description: ID of the user who owns the list
         title:
           type: string
         isChecked:
           type: boolean
           default: true
+          description: Whether the list is shown in the app
         tasks:
           type: array
           items:
@@ -344,6 +497,28 @@ components:
         updated_at:
           type: string
           format: date-time
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+          format: email
+        user_name:
+          type: string
+        profilePicture:
+          type: string
+
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: JWT, valid for 7 days
+        user:
+          $ref: '#/components/schemas/User'
 
     Error:
       type: object
@@ -358,8 +533,21 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Missing, invalid or expired token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            noToken:
+              value:
+                message: No token provided.
+            invalidToken:
+              value:
+                message: Invalid or expired token.
     NotFound:
-      description: Resource not found
+      description: Resource not found (or it belongs to another user)
       content:
         application/json:
           schema:

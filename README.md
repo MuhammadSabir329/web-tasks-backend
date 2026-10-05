@@ -20,7 +20,7 @@ REST API for **Web Tasks**, a task management app with nested lists and tasks. B
 
 Node.js, Express 5, MongoDB with Mongoose, JSON Web Tokens (`jsonwebtoken`), `bcryptjs`, `cors`, `dotenv`.
 
-Deployed on Render, with the database on MongoDB Atlas.
+Backend deployed on Bonto, with the database on MongoDB Atlas.
 
 ## API Endpoints
 
